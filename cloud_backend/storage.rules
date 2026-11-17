@@ -1,0 +1,22 @@
+// =====================================================================
+// PROYECTO CAIMIUP - REGLAS DE SEGURIDAD FIREBASE STORAGE
+// Agente: Backend_Cloud_Dev
+// =====================================================================
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Carpeta de pictogramas sincronizados hacia la Raspberry Pi
+    match /pictogramas/{allPaths=**} {
+      // Lectura pública/autorizada para que la Raspberry Pi descargue las imágenes localmente
+      allow read: if true;
+      // Solo el Administrador puede subir nuevas imágenes de pictogramas
+      allow write: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.uid == 'admin_master');
+    }
+
+    // Carpeta de reportes y exportables pedagógicos
+    match /reportes/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

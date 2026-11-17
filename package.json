@@ -1,0 +1,20 @@
+{
+  "name": "pictoaprende-caimiup-backend",
+  "version": "1.0.0",
+  "description": "Backend Cloud y API REST para PictoAprende CAIMIUP (Universidad de Pamplona)",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "node backend/tests/api.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mqtt": "^5.10.1",
+    "mysql2": "^3.11.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

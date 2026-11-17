@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Esquema Firestore - Entorno Híbrido CAIMIUP",
+  "description": "Modelo de datos cloud para el nodo físico local (ESP32/RPi) y el Web Dashboard (RBAC 4 Roles)",
+  "collections": {
+    "usuarios": {
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "nombre_completo": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "docente", "padre", "guest"] },
+        "id_nino_asociado": { "type": "string", "description": "Obligatorio para rol padre" },
+        "activo": { "type": "boolean" },
+        "creado_en": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "ninos": {
+      "type": "object",
+      "properties": {
+        "id_nino": { "type": "string" },
+        "codigo_estudiante": { "type": "string", "description": "Formato EST-CAIMIUP-XX (Seudonimizado)" },
+        "nombre_o_pseudonimo": { "type": "string" },
+        "fecha_nacimiento": { "type": "string", "format": "date" },
+        "nivel_actual": { "type": "integer", "enum": [1, 2, 3], "description": "1: Necesidades, 2: Emociones, 3: Rutinas" },
+        "id_acudiente": { "type": "string" },
+        "observaciones_terapeuticas": { "type": "string" },
+        "activo": { "type": "boolean" }
+      },
+      "required": ["id_nino", "codigo_estudiante", "nivel_actual"]
+    },
+    "pictogramas_catalogo": {
+      "type": "object",
+      "properties": {
+        "id_pictograma": { "type": "string" },
+        "nombre": { "type": "string" },
+        "categoria": { "type": "string", "enum": ["NECESIDAD", "EMOCION", "RUTINA"] },
+        "nivel": { "type": "integer", "enum": [1, 2, 3] },
+        "boton_asociado": { "type": "string", "enum": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"] },
+        "url_imagen": { "type": "string", "description": "Enlace a Firebase Storage" },
+        "hash_version": { "type": "string" },
+        "audio_texto": { "type": "string" },
+        "activo": { "type": "boolean" }
+      },
+      "required": ["id_pictograma", "nombre", "boton_asociado", "nivel"]
+    },
+    "sesiones_hardware": {
+      "type": "object",
+      "properties": {
+        "id_sesion": { "type": "string" },
+        "id_nino": { "type": "string" },
+        "id_docente": { "type": "string" },
+        "dispositivo_edge": { "type": "string", "default": "RPI_CAIMIUP_01" },
+        "nivel_evaluado": { "type": "integer" },
+        "fecha_inicio": { "type": "string", "format": "date-time" },
+        "fecha_fin": { "type": "string", "format": "date-time" },
+        "total_intentos": { "type": "integer" },
+        "total_aciertos": { "type": "integer" },
+        "total_errores": { "type": "integer" },
+        "observacion_docente": { "type": "string" }
+      },
+      "required": ["id_sesion", "id_nino", "fecha_inicio"]
+    },
+    "metricas_palabras": {
+      "type": "object",
+      "properties": {
+        "id_metrica": { "type": "string" },
+        "id_sesion": { "type": "string" },
+        "id_nino": { "type": "string" },
+        "palabra": { "type": "string" },
+        "boton_presionado": { "type": "string" },
+        "boton_esperado": { "type": "string" },
+        "tiempo_reaccion_ms": { "type": "integer", "description": "Latencia desde presentación HDMI hasta pulsación ESP32" },
+        "resultado": { "type": "string", "enum": ["ACIERTO", "ERROR", "EXPLORATORIO"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id_metrica", "id_sesion", "palabra", "tiempo_reaccion_ms", "resultado"]
+    },
+    "sync_control": {
+      "type": "object",
+      "properties": {
+        "id_dispositivo": { "type": "string", "default": "RPI_CAIMIUP_01" },
+        "version_catalogo": { "type": "integer" },
+        "ultima_actualizacion": { "type": "string", "format": "date-time" },
+        "estudiante_activo_id": { "type": "string" },
+        "nivel_activo": { "type": "integer" },
+        "comando_pendiente": { "type": "string", "enum": ["NONE", "UPDATE_PICTOGRAMS", "CHANGE_LEVEL", "RESET_SESSION"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+// =====================================================================
+// PROYECTO CAIMIUP - REGLAS DE SEGURIDAD FIRESTORE (RBAC 4 ROLES)
+// Agente: Backend_Cloud_Dev
+// =====================================================================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funciones auxiliares de verificación de roles
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return request.auth.token.role != null 
+        ? request.auth.token.role 
+        : get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isDocente() {
+      return isAuthenticated() && (getUserRole() == 'docente' || getUserRole() == 'admin');
+    }
+
+    function isPadre() {
+      return isAuthenticated() && getUserRole() == 'padre';
+    }
+
+    function isGuest() {
+      return isAuthenticated() && getUserRole() == 'guest';
+    }
+
+    // 1. Colección de Usuarios
+    match /usuarios/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isDocente());
+      allow write: if isAdmin();
+    }
+
+    // 2. Colección de Niños (Protegido por Habeas Data / Menores)
+    match /ninos/{ninoId} {
+      // Admin y docentes ven todos; Padre solo ve el documento de su hijo asignado
+      allow read: if isAdmin() || isDocente() || (isPadre() && resource.data.id_acudiente == request.auth.uid);
+      // Docente puede actualizar nivel pedagógico u observaciones; Admin control total
+      allow update: if isDocente() || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // 3. Catálogo de Pictogramas (Actualizaciones OTA hacia Raspberry Pi)
+    match /pictogramas_catalogo/{pictoId} {
+      // Lectura permitida para todos los roles autenticados y dispositivo Edge RPi
+      allow read: if true;
+      // Solo el Administrador puede inyectar o actualizar nuevos pictogramas
+      allow write: if isAdmin();
+    }
+
+    // 4. Registro de Sesiones del Hardware Físico
+    match /sesiones_hardware/{sesionId} {
+      allow read: if isAdmin() || isDocente() || (isPadre() && resource.data.id_acudiente == request.auth.uid);
+      // La Raspberry Pi (autenticada como servicio o hardware) o Docente pueden escribir sesiones
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // 5. Métricas Detalladas por Palabra (Histogramas y Duración)
+    match /metricas_palabras/{metricaId} {
+      allow read: if isAdmin() || isDocente() || (isPadre() && resource.data.id_acudiente == request.auth.uid);
+      allow create: if isAuthenticated(); // Edge node telemetría
+      allow update, delete: if isAdmin();
+    }
+
+    // 6. Canal de Control y Sincronización Edge RPi
+    match /sync_control/{deviceId} {
+      allow read: if true;
+      allow write: if isAdmin() || isDocente();
+    }
+
+    // 7. Eventos Institucionales CAIMIUP
+    match /eventos_caimiup/{eventoId} {
+      allow read: if true; // Acceso público o rol guest
+      allow write: if isAdmin() || isDocente();
+    }
+  }
+}

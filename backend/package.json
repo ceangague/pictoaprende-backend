@@ -1,0 +1,29 @@
+{
+  "name": "caimiup-pictoaprende-backend",
+  "version": "1.0.0",
+  "description": "Backend API REST y Broker MQTT para la plataforma PictoAprende - CAIMIUP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node tests/api.test.js"
+  },
+  "keywords": [
+    "caimiup",
+    "tea",
+    "arasaac",
+    "iot",
+    "esp32",
+    "mqtt",
+    "w3c"
+  ],
+  "author": "Cesar Andres Galvis Guerrero",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mqtt": "^5.10.1",
+    "mysql2": "^3.11.0",
+    "ws": "^8.18.0"
+  }
+}
