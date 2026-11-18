@@ -141,6 +141,67 @@ class SupabaseService {
 
     // Sincronizar y cargar sesiones desde la base de datos persistente (garantiza supervivencia a reinicios)
     this.cargarSesionesDesdeBD();
+    this.cargarDatosDesdeSupabaseCloud();
+  }
+
+  async cargarDatosDesdeSupabaseCloud() {
+    if (!this.isLive) return;
+    try {
+      const headers = {
+        'apikey': this.serviceRoleKey || this.key,
+        'Authorization': `Bearer ${this.serviceRoleKey || this.key}`
+      };
+
+      // 1. Cargar Niños desde Supabase Cloud
+      try {
+        const resNinos = await fetch(`${this.url}/rest/v1/ninos?select=*`, { headers });
+        if (resNinos.ok) {
+          const cloudNinos = await resNinos.json();
+          if (Array.isArray(cloudNinos) && cloudNinos.length > 0) {
+            cloudNinos.forEach(cn => {
+              const idx = localStore.ninos.findIndex(n => n.id_nino === cn.id_nino);
+              if (idx >= 0) localStore.ninos[idx] = { ...localStore.ninos[idx], ...cn };
+              else localStore.ninos.push(cn);
+            });
+            console.log(`[Backend_Cloud_Dev]: ✅ ${cloudNinos.length} niños cargados desde Supabase Cloud.`);
+          }
+        }
+      } catch (eNinos) {}
+
+      // 2. Cargar Perfiles de Usuarios desde Supabase Cloud
+      try {
+        const resUsers = await fetch(`${this.url}/rest/v1/perfiles_usuarios?select=*`, { headers });
+        if (resUsers.ok) {
+          const cloudUsers = await resUsers.json();
+          if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+            cloudUsers.forEach(cu => {
+              const idx = localStore.perfiles_usuarios.findIndex(u => u.email.toLowerCase() === cu.email.toLowerCase());
+              if (idx >= 0) localStore.perfiles_usuarios[idx] = { ...localStore.perfiles_usuarios[idx], ...cu };
+              else localStore.perfiles_usuarios.push(cu);
+            });
+            console.log(`[Backend_Cloud_Dev]: ✅ ${cloudUsers.length} usuarios cargados desde Supabase Cloud.`);
+          }
+        }
+      } catch (eUsers) {}
+
+      // 3. Cargar Sesiones de Hardware desde Supabase Cloud
+      try {
+        const resSes = await fetch(`${this.url}/rest/v1/sesiones_hardware?select=*`, { headers });
+        if (resSes.ok) {
+          const cloudSes = await resSes.json();
+          if (Array.isArray(cloudSes) && cloudSes.length > 0) {
+            cloudSes.forEach(cs => {
+              const idx = localStore.sesiones_hardware.findIndex(s => s.id_sesion === cs.id_sesion);
+              if (idx >= 0) localStore.sesiones_hardware[idx] = { ...localStore.sesiones_hardware[idx], ...cs };
+              else localStore.sesiones_hardware.push(cs);
+            });
+            console.log(`[Backend_Cloud_Dev]: ✅ ${cloudSes.length} sesiones de hardware cargadas desde Supabase Cloud.`);
+          }
+        }
+      } catch (eSes) {}
+    } catch (err) {
+      console.warn('[Backend_Cloud_Dev]: Error al sincronizar desde Supabase Cloud:', err.message);
+    }
   }
 
   cargarSesionesDesdeBD() {
@@ -961,6 +1022,7 @@ class SupabaseService {
     } catch (e) {
       console.warn('[Backend_Cloud_Dev]: Aviso al persistir sesion en BD:', e.message);
     }
+    this.sincronizarSesionCloud(nuevaSesion);
 
     // Actualizar sync_control
     localStore.sync_control.estudiante_activo_id = nino.id_nino;
@@ -1018,6 +1080,7 @@ class SupabaseService {
       } catch (e) {
         console.warn('[Backend_Cloud_Dev]: Aviso al persistir sesion finalizada en BD:', e.message);
       }
+      this.sincronizarSesionCloud(sesion);
     }
 
     localStore.sync_control.estado_sesion = 'TERMINADA';
@@ -1043,6 +1106,38 @@ class SupabaseService {
       sesion,
       sync: localStore.sync_control
     };
+  }
+
+  async sincronizarSesionCloud(sesion) {
+    if (!this.isLive || !sesion) return;
+    try {
+      const payload = {
+        id_sesion: String(sesion.id_sesion),
+        id_nino: String(sesion.id_nino),
+        id_docente: sesion.id_docente || null,
+        dispositivo_edge: sesion.dispositivo_edge || 'RPI_CAIMIUP_01',
+        nivel_evaluado: parseInt(sesion.nivel_evaluado, 10) || 1,
+        fecha_inicio: sesion.fecha_inicio || new Date().toISOString(),
+        fecha_fin: sesion.fecha_fin || null,
+        total_intentos: parseInt(sesion.total_intentos, 10) || 0,
+        total_aciertos: parseInt(sesion.total_aciertos, 10) || 0,
+        total_errores: parseInt(sesion.total_errores, 10) || 0,
+        observacion_docente: sesion.observacion_docente || null
+      };
+      const res = await fetch(`${this.url}/rest/v1/sesiones_hardware`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.serviceRoleKey || this.key,
+          'Authorization': `Bearer ${this.serviceRoleKey || this.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(payload)
+      });
+      console.log(`[Backend_Cloud_Dev]: Supabase sesiones_hardware sync Status: ${res.status}`);
+    } catch (e) {
+      console.warn('[Backend_Cloud_Dev]: Error al sincronizar sesion en Supabase Cloud:', e.message);
+    }
   }
 
   // --- 1B. HISTORIAL DE SESIONES CLÍNICAS (DOCENTE & ADMIN) ---
