@@ -152,13 +152,24 @@ class EmailService {
         if (socket && !socket.destroyed) socket.destroy();
       };
 
-      timer = setTimeout(() => {
+      timer = setTimeout(async () => {
         limpiar();
+        console.warn('[Backend_DB_Dev]: Timeout SMTP en socket directo. Despachando mediante HTTPS Relay Hostinger...');
+        try {
+          const resRelay = await this.enviarPorRelayHttp({ to, subject, html, text });
+          if (resRelay && resRelay.exito) {
+            registro.estado = 'ENVIADO';
+            registro.modo = 'HTTPS_RELAY_HOSTINGER';
+            registro.mensaje = resRelay.mensaje;
+            this.historialEnvios.unshift(registro);
+            return resolve(resRelay);
+          }
+        } catch (relayErr) {}
         registro.estado = 'ERROR_TIMEOUT';
         registro.error = 'Tiempo de espera agotado al conectar con el servidor SMTP.';
         this.historialEnvios.unshift(registro);
         reject(new Error(registro.error));
-      }, 15000);
+      }, 5000);
 
       const onConnect = () => {
         // La conexión ha iniciado; el servidor SMTP enviará su saludo 220
@@ -170,8 +181,21 @@ class EmailService {
         socket = net.connect(this.config.port, this.config.host, onConnect);
       }
 
-      socket.on('error', (err) => {
+      socket.on('error', async (err) => {
         limpiar();
+        console.warn(`[Backend_DB_Dev]: Socket SMTP directo no disponible (${err.message}). Despachando mediante HTTPS Relay Hostinger...`);
+        try {
+          const resRelay = await this.enviarPorRelayHttp({ to, subject, html, text });
+          if (resRelay && resRelay.exito) {
+            registro.estado = 'ENVIADO';
+            registro.modo = 'HTTPS_RELAY_HOSTINGER';
+            registro.mensaje = resRelay.mensaje;
+            this.historialEnvios.unshift(registro);
+            return resolve(resRelay);
+          }
+        } catch (relayErr) {
+          console.warn('[Backend_DB_Dev]: Falló relay HTTPS:', relayErr.message);
+        }
         registro.estado = 'ERROR_CONEXION';
         registro.error = err.message;
         this.historialEnvios.unshift(registro);
@@ -420,6 +444,66 @@ class EmailService {
       to: destinatario,
       subject: `[CAIMIUP] Verificación de Entrega de Correo Institucional`,
       html
+    });
+  }
+
+  /**
+   * Despacha el correo a través del Relay HTTPS de Hostinger cuando los puertos SMTP directos están bloqueados en la nube
+   */
+  async enviarPorRelayHttp({ to, subject, html, text }) {
+    const https = require('https');
+    return new Promise((resolve) => {
+      const payload = JSON.stringify({
+        to,
+        subject,
+        html,
+        text,
+        user: this.config.user || 'ceangague@gmail.com',
+        pass: this.config.pass || 'wmkgoclsaomwuist',
+        fromEmail: this.config.fromEmail || 'ceangague@gmail.com',
+        fromName: this.config.fromName || 'CAIMIUP - Universidad de Pamplona'
+      });
+
+      const options = {
+        hostname: 'pictoaprende-telecomunicaciones.com',
+        port: 443,
+        path: '/api/mailer.php',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        },
+        timeout: 20000
+      };
+
+      const req = https.request(options, (res) => {
+        let respData = '';
+        res.on('data', chunk => { respData += chunk; });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(respData);
+            console.log('[Backend_DB_Dev]: ✅ Respuesta de Relay HTTPS Hostinger:', parsed.mensaje || 'Envío OK');
+            resolve(parsed);
+          } catch (e) {
+            console.warn('[Backend_DB_Dev]: Respuesta no JSON de Relay:', respData.substring(0, 150));
+            resolve({ exito: false, mensaje: 'Respuesta inválida del relay: ' + respData.substring(0, 80) });
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        console.warn('[Backend_DB_Dev]: Error en petición a Relay HTTPS:', err.message);
+        resolve({ exito: false, mensaje: 'Error al conectar con relay HTTPS: ' + err.message });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        console.warn('[Backend_DB_Dev]: Timeout en petición a Relay HTTPS');
+        resolve({ exito: false, mensaje: 'Timeout en relay HTTPS' });
+      });
+
+      req.write(payload);
+      req.end();
     });
   }
 
