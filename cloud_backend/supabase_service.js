@@ -157,12 +157,8 @@ class SupabaseService {
         const resNinos = await fetch(`${this.url}/rest/v1/ninos?select=*`, { headers });
         if (resNinos.ok) {
           const cloudNinos = await resNinos.json();
-          if (Array.isArray(cloudNinos) && cloudNinos.length > 0) {
-            cloudNinos.forEach(cn => {
-              const idx = localStore.ninos.findIndex(n => n.id_nino === cn.id_nino);
-              if (idx >= 0) localStore.ninos[idx] = { ...localStore.ninos[idx], ...cn };
-              else localStore.ninos.push(cn);
-            });
+          if (Array.isArray(cloudNinos)) {
+            localStore.ninos = cloudNinos;
             console.log(`[Backend_Cloud_Dev]: ✅ ${cloudNinos.length} niños cargados desde Supabase Cloud.`);
           }
         }
@@ -174,11 +170,7 @@ class SupabaseService {
         if (resUsers.ok) {
           const cloudUsers = await resUsers.json();
           if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
-            cloudUsers.forEach(cu => {
-              const idx = localStore.perfiles_usuarios.findIndex(u => u.email.toLowerCase() === cu.email.toLowerCase());
-              if (idx >= 0) localStore.perfiles_usuarios[idx] = { ...localStore.perfiles_usuarios[idx], ...cu };
-              else localStore.perfiles_usuarios.push(cu);
-            });
+            localStore.perfiles_usuarios = cloudUsers;
             console.log(`[Backend_Cloud_Dev]: ✅ ${cloudUsers.length} usuarios cargados desde Supabase Cloud.`);
           }
         }
@@ -189,12 +181,8 @@ class SupabaseService {
         const resSes = await fetch(`${this.url}/rest/v1/sesiones_hardware?select=*`, { headers });
         if (resSes.ok) {
           const cloudSes = await resSes.json();
-          if (Array.isArray(cloudSes) && cloudSes.length > 0) {
-            cloudSes.forEach(cs => {
-              const idx = localStore.sesiones_hardware.findIndex(s => s.id_sesion === cs.id_sesion);
-              if (idx >= 0) localStore.sesiones_hardware[idx] = { ...localStore.sesiones_hardware[idx], ...cs };
-              else localStore.sesiones_hardware.push(cs);
-            });
+          if (Array.isArray(cloudSes)) {
+            localStore.sesiones_hardware = cloudSes;
             console.log(`[Backend_Cloud_Dev]: ✅ ${cloudSes.length} sesiones de hardware cargadas desde Supabase Cloud.`);
           }
         }
